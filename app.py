@@ -2,13 +2,13 @@ import os
 import tempfile
 import requests
 from flask import Flask, request, Response
-from flask_cors import CORS  # Gọi thư viện cấp phép
+from flask_cors import CORS
 import mobi
 from bs4 import BeautifulSoup
 import shutil
 
 app = Flask(__name__)
-CORS(app)  # Bùa chú mở cửa cho mọi App truy cập
+CORS(app)
 
 @app.route('/convert', methods=['GET'])
 def convert():
@@ -31,13 +31,17 @@ def convert():
 
         extract_dir, filepath = mobi.extract(temp_path)
 
+        # [Suy luận] Quét toàn bộ thư mục giải nén để gom sạch file văn bản
         text_content = ""
-        if filepath.endswith('.html') or filepath.endswith('.htm'):
-            with open(filepath, 'r', encoding='utf-8') as f:
-                soup = BeautifulSoup(f.read(), 'html.parser')
-                text_content = soup.get_text(separator='\n')
-        else:
-            text_content = "Định dạng giải nén không hỗ trợ hiển thị chữ."
+        for root, dirs, files in os.walk(extract_dir):
+            for file in sorted(files):
+                if file.lower().endswith(('.html', '.htm', '.xhtml')):
+                    with open(os.path.join(root, file), 'r', encoding='utf-8', errors='ignore') as f:
+                        soup = BeautifulSoup(f.read(), 'html.parser')
+                        text_content += soup.get_text(separator='\n') + "\n\n"
+
+        if not text_content.strip():
+            text_content = "Không tìm thấy nội dung chữ. File có thể là truyện tranh ảnh hoặc bị mã hóa phần cứng."
 
         return Response(text_content, mimetype='text/plain')
 
